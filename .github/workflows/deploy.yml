@@ -50,14 +50,7 @@ jobs:
       name: 'Production'
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
     
-    steps:
-      - name: 'Login to Azure'
-        uses: azure/login@v1
-        with:
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          auth-type: 'IDENTITY'
-
-          
+    steps:       
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
@@ -65,12 +58,6 @@ jobs:
 
       - name: Unzip artifact for deployment
         run: unzip release.zip
-
-      # Step to login to Azure
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}  # 認証情報をSecretsから取得
 
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
