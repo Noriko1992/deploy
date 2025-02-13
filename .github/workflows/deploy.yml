@@ -61,7 +61,7 @@ jobs:
       - name: Azure Login
         uses: azure/login@v1
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}  # 認証情報をSecretsに保存していると仮定
+          creds: ${{ secrets.AZURE_CREDENTIALS }}  # 認証情報をSecretsから取得
 
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
