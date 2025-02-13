@@ -1,56 +1,55 @@
+
 import os
 import tempfile
 import mysql.connector
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from urllib.parse import quote
-import atexit
-from dotenv import load_dotenv
+import psutil
 
-# 環境変数をロード
-load_dotenv()
+
+# SSL証明書の取得
+ssl_cert = os.getenv("SSL_CA_STR")
+if not ssl_cert:
+    raise ValueError("❌ SSL_CA_STR が設定されていません！")
 
 # 環境変数の取得
-DATABASE_URL = os.getenv("DB_URL")
-pem_content = os.getenv("SSL_CA_STR")
-
-# 環境変数が読み込まれていることを確認
-print(f"✅ DATABASE_URL: {DATABASE_URL}")
-print(f"✅ SSL_CA_STR: {pem_content[:30]}...")  # セキュリティ上、冒頭30文字のみ表示
+db_user = os.getenv("MYSQL_USER")
+db_password = os.getenv("MYSQL_PASSWORD")
+db_host = os.getenv("MYSQL_HOST")
+db_name = os.getenv("MYSQL_DATABASE")
 
 # 必須環境変数のチェック
-required_vars = {
-    "DB_URL": DATABASE_URL,
-    "SSL_CA_STR": pem_content
-}
+missing_vars = [var for var, value in {
+    "MYSQL_USER": db_user,
+    "MYSQL_PASSWORD": db_password,
+    "MYSQL_HOST": db_host,
+    "MYSQL_DATABASE": db_name,
+    "SSL_CA_STR": ssl_cert
+}.items() if not value]
 
-missing_vars = [key for key, value in required_vars.items() if not value]
 if missing_vars:
     raise ValueError(f"❌ 必須環境変数が設定されていません: {', '.join(missing_vars)}")
 
+# パスワードを URL エンコード（ `@` → `%40` ）
+db_password_encoded = quote(db_password)
+
+
+
 # SSL証明書の一時ファイル作成
-pem_content = pem_content.replace("\\n", "\n").replace("\\", "")
-
-# 一時ファイル作成
-with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix=".pem") as temp_pem:
+def create_ssl_cert_tempfile():
+    pem_content = ssl_cert.replace("\\n", "\n").replace("\\", "")
+    temp_pem = tempfile.NamedTemporaryFile(delete=False, suffix=".pem", mode="w")
     temp_pem.write(pem_content)
-    temp_pem_path = temp_pem.name
+    temp_pem.close()
+    return temp_pem.name
 
-# 一時ファイルの存在確認
-print(f"✅ Temporary SSL CA certificate file created at: {temp_pem_path}")
-with open(temp_pem_path, "r") as temp_pem:
-    print("===== Temporary certificate file content: =====")
-    print(temp_pem.read()[:200])  # セキュリティのため、最初の200文字のみ表示
+ssl_ca_path = create_ssl_cert_tempfile()
+
 
 # SQLAlchemy エンジンの作成
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={
-        "ssl": {
-            "ca": temp_pem_path
-        }
-    }
-)
+DATABASE_URL = f"mysql+pymysql://{db_user}:{db_password_encoded}@{db_host}/{db_name}?ssl_ca={ssl_ca_path}"
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 # セッションの作成
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -58,22 +57,15 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # MySQL に直接接続する関数
 def get_db_connection():
     return mysql.connector.connect(
-        host=os.getenv("MYSQL_HOST"),
-        user=os.getenv("MYSQL_USER"),
-        password=os.getenv("MYSQL_PASSWORD"),
-        database=os.getenv("MYSQL_DATABASE"),
-        ssl_ca=temp_pem_path
+        host=db_host,
+        user=db_user,
+        password=db_password,
+        database=db_name,
+        ssl_ca=ssl_ca_path
     )
 
-# Python正常終了時に一時ファイルを削除
-def cleanup_temp_file(path):
-    if os.path.exists(path):
-        os.remove(path)
-        print(f"✅ Temporary SSL CA certificate file deleted: {path}")
-
-atexit.register(cleanup_temp_file, temp_pem_path)
 
 # 環境変数のチェック（デバッグ用）
-print(f"✅ MySQL USER: {os.getenv('MYSQL_USER')}")
-print(f"✅ MySQL HOST: {os.getenv('MYSQL_HOST')}")
-print(f"✅ MySQL DATABASE: {os.getenv('MYSQL_DATABASE')}")
+print(f"✅ MySQL USER: {db_user}")
+print(f"✅ MySQL HOST: {db_host}")
+print(f"✅ MySQL DATABASE: {db_name}")
