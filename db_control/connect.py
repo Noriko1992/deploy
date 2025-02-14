@@ -1,50 +1,54 @@
 import os
 import tempfile
+# import mysql.connector
 from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 
-# 環境変数の読み込み
 load_dotenv()
 
-# Azure MySQL の接続情報
-DATABASE_URL = os.getenv("DATABASE_URL")
-SSL_CA_CERT = os.getenv("SSL_CA_CERT")
+# SSL証明書の取得
+ssl_cert = os.getenv("SSL_CA_STR")
+if not ssl_cert:
+    raise ValueError("❌ SSL_CA_STR が設定されていません！")
 
+# SSL証明書の一時ファイル作成
+def create_ssl_cert_tempfile():
+    pem_content = ssl_cert.replace("\\n", "\n").replace("\\", "")
+    temp_pem = tempfile.NamedTemporaryFile(delete=False, suffix=".pem", mode="w")
+    temp_pem.write(pem_content)
+    temp_pem.close()
+    return temp_pem.name
+
+ssl_ca_path = create_ssl_cert_tempfile()
+
+# 環境変数 `DB_URL` を取得
+DATABASE_URL = os.getenv("DB_URL")
 if not DATABASE_URL:
-    raise ValueError("DATABASE_URL is not set in environment variables.")
+    raise ValueError("❌ DB_URL が設定されていません！")
 
-print(f"Using DATABASE_URL: {DATABASE_URL}")
-
-try:
-    print("=== Connecting to AzureDB ===")
-
-    # SSL証明書の確認
-    if not SSL_CA_CERT:
-        raise ValueError("SSL_CA_CERT is not set in environment variables.")
-
-    # 証明書の改行を修正
-    SSL_CA_CERT = SSL_CA_CERT.replace("\\n", "\n").replace("\\", "")
-
-    # 一時ファイル作成（SSL証明書を保存）
-    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix=".pem") as temp_pem:
-        temp_pem.write(SSL_CA_CERT)
-        temp_pem_path = temp_pem.name
-
-    with open(temp_pem_path, "r") as temp_pem:
-        print("===== Temporary certificate file content: =====")
-        print(temp_pem_path)
-        print(temp_pem.read())
-
-    # Azure MySQL に接続
-    engine = create_engine(
-        DATABASE_URL,
-        connect_args={
-            "ssl": {
-                "ca": temp_pem_path
-            }
+# SQLAlchemy エンジンの作成
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={
+        "ssl": {
+            "ca": ssl_ca_path
         }
-    )
+    }
+)
 
-except Exception as e:
-    print(f"Error during database connection setup: {e}")
-    raise
+# セッションの作成
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# MySQL に直接接続する関数
+# def get_db_connection():
+#     return mysql.connector.connect(
+#         host=os.getenv("MYSQL_HOST"),
+#         user=os.getenv("MYSQL_USER"),
+#         password=os.getenv("MYSQL_PASSWORD"),
+#         database=os.getenv("MYSQL_DATABASE"),
+#         ssl_ca=ssl_ca_path
+#     )
+
+# 環境変数のチェック（デバッグ用）
+print(f"✅ DATABASE_URL: {DATABASE_URL}")
