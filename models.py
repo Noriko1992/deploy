@@ -6,7 +6,7 @@ Base = declarative_base()
 
 # 商品テーブル
 class Product(Base):
-    __tablename__ = 'm_product_adachi'
+    __tablename__ = 'm_product_hara'
 
     PRD_ID = Column(Integer, primary_key=True)  # 仕様書には AUTO_INCREMENT 記載なし
     code = Column(String(13), unique=True, nullable=False)  # CHAR(13) に修正
@@ -16,7 +16,7 @@ class Product(Base):
 
 # 取引テーブル
 class Transaction(Base):
-    __tablename__ = "transactions_adachi"
+    __tablename__ = "transactions_hara"
 
     trd_id = Column(Integer, primary_key=True, autoincrement=True)  # ID名を仕様に合わせる
     datetime = Column(TIMESTAMP, nullable=False)  # created_at → datetime に変更
@@ -27,7 +27,7 @@ class Transaction(Base):
 
 # 取引詳細テーブル
 class TransactionDetail(Base):
-    __tablename__ = 'transaction_details_adachi'
+    __tablename__ = 'transaction_details_hara'
 
     dtl_id = Column(Integer, primary_key=True, autoincrement=True)
     trd_id = Column(Integer, ForeignKey('transactions_adachi.trd_id'), nullable=False)  # 修正
