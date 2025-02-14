@@ -1,40 +1,13 @@
-
 import os
 import tempfile
 import mysql.connector
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from urllib.parse import quote
-import psutil
-
 
 # SSL証明書の取得
 ssl_cert = os.getenv("SSL_CA_STR")
 if not ssl_cert:
     raise ValueError("❌ SSL_CA_STR が設定されていません！")
-
-# 環境変数の取得
-db_user = os.getenv("MYSQL_USER")
-db_password = os.getenv("MYSQL_PASSWORD")
-db_host = os.getenv("MYSQL_HOST")
-db_name = os.getenv("MYSQL_DATABASE")
-
-# 必須環境変数のチェック
-missing_vars = [var for var, value in {
-    "MYSQL_USER": db_user,
-    "MYSQL_PASSWORD": db_password,
-    "MYSQL_HOST": db_host,
-    "MYSQL_DATABASE": db_name,
-    "SSL_CA_STR": ssl_cert
-}.items() if not value]
-
-if missing_vars:
-    raise ValueError(f"❌ 必須環境変数が設定されていません: {', '.join(missing_vars)}")
-
-# パスワードを URL エンコード（ `@` → `%40` ）
-db_password_encoded = quote(db_password)
-
-
 
 # SSL証明書の一時ファイル作成
 def create_ssl_cert_tempfile():
@@ -46,10 +19,20 @@ def create_ssl_cert_tempfile():
 
 ssl_ca_path = create_ssl_cert_tempfile()
 
+# 環境変数 `DB_URL` を取得
+DATABASE_URL = os.getenv("DB_URL")
+if not DATABASE_URL:
+    raise ValueError("❌ DB_URL が設定されていません！")
 
 # SQLAlchemy エンジンの作成
-DATABASE_URL = f"mysql+pymysql://{db_user}:{db_password_encoded}@{db_host}/{db_name}?ssl_ca={ssl_ca_path}"
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={
+        "ssl": {
+            "ca": ssl_ca_path
+        }
+    }
+)
 
 # セッションの作成
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -57,15 +40,12 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # MySQL に直接接続する関数
 def get_db_connection():
     return mysql.connector.connect(
-        host=db_host,
-        user=db_user,
-        password=db_password,
-        database=db_name,
+        host=os.getenv("MYSQL_HOST"),
+        user=os.getenv("MYSQL_USER"),
+        password=os.getenv("MYSQL_PASSWORD"),
+        database=os.getenv("MYSQL_DATABASE"),
         ssl_ca=ssl_ca_path
     )
 
-
 # 環境変数のチェック（デバッグ用）
-print(f"✅ MySQL USER: {db_user}")
-print(f"✅ MySQL HOST: {db_host}")
-print(f"✅ MySQL DATABASE: {db_name}")
+print(f"✅ DATABASE_URL: {DATABASE_URL}")
