@@ -2,14 +2,15 @@ from fastapi import FastAPI, HTTPException, Depends
 from typing import List, Optional
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from connect import get_db_connection, SessionLocal
+# from connect import get_db_connection, SessionLocal
+from connect import SessionLocal
 from models import Product
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import pymysql
 from fastapi.middleware.cors import CORSMiddleware
 import os
-import psutil
+# import psutil
 
 app = FastAPI()
 
@@ -61,7 +62,7 @@ def handle_purchase(request: PurchaseRequest,):
         raise HTTPException(status_code=400, detail="カートが空です")
 
     try:
-        conn = get_db_connection()
+        conn = get_db()
         cursor = conn.cursor()
 
         # 🔹 日本時間の現在日時を取得
