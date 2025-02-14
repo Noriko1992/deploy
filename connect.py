@@ -1,8 +1,11 @@
 import os
 import tempfile
-import mysql.connector
+# import mysql.connector
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # SSL証明書の取得
 ssl_cert = os.getenv("SSL_CA_STR")
@@ -38,14 +41,14 @@ engine = create_engine(
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # MySQL に直接接続する関数
-def get_db_connection():
-    return mysql.connector.connect(
-        host=os.getenv("MYSQL_HOST"),
-        user=os.getenv("MYSQL_USER"),
-        password=os.getenv("MYSQL_PASSWORD"),
-        database=os.getenv("MYSQL_DATABASE"),
-        ssl_ca=ssl_ca_path
-    )
+# def get_db_connection():
+#     return mysql.connector.connect(
+#         host=os.getenv("MYSQL_HOST"),
+#         user=os.getenv("MYSQL_USER"),
+#         password=os.getenv("MYSQL_PASSWORD"),
+#         database=os.getenv("MYSQL_DATABASE"),
+#         ssl_ca=ssl_ca_path
+#     )
 
 # 環境変数のチェック（デバッグ用）
 print(f"✅ DATABASE_URL: {DATABASE_URL}")
