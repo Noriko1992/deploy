@@ -55,6 +55,13 @@ def get_product(code: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="商品が見つかりません")
     return {"product": {"code": product.code, "name": product.name, "price": product.price}}
 
+@app.get("/")
+def read_root():
+    return {"message": "FastAPI is running!"}
+
+@app.get("/favicon.ico")
+async def favicon():
+    return {"message": "No favicon"}
 
 @app.post("/purchase")
 def handle_purchase(request: PurchaseRequest,):
@@ -62,8 +69,8 @@ def handle_purchase(request: PurchaseRequest,):
         raise HTTPException(status_code=400, detail="カートが空です")
 
     try:
-        conn = get_db()
-        cursor = conn.cursor()
+        db = next(get_db()) 
+        cursor = db.connection().cursor()
 
         # 🔹 日本時間の現在日時を取得
         now = datetime.now(ZoneInfo("Asia/Tokyo"))
