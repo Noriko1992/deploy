@@ -63,13 +63,59 @@ def read_root():
 async def favicon():
     return {"message": "No favicon"}
 
+# @app.post("/purchase")
+# def handle_purchase(request: PurchaseRequest, db: Session = Depends(get_db)):  # 🔹 ここで db を取得
+#     if not request.items:
+#         raise HTTPException(status_code=400, detail="カートが空です")
+
+#     try:
+#         cursor = db.connection().cursor()  # 🔹 `db` の接続を適切に取得
+
 @app.post("/purchase")
-def handle_purchase(request: PurchaseRequest, db: Session = Depends(get_db)):  # 🔹 ここで db を取得
+def handle_purchase(request: PurchaseRequest, db: Session = Depends(get_db)):  # ✅ `db` を正しく取得
     if not request.items:
         raise HTTPException(status_code=400, detail="カートが空です")
 
     try:
-        cursor = db.connection().cursor()  # 🔹 `db` の接続を適切に取得
+        # 🔹 取引データを SQLAlchemy の ORM を使って挿入
+        total_price = sum(item.price * item.quantity for item in request.items)
+        new_transaction = Transaction(
+            datetime=datetime.now(ZoneInfo("Asia/Tokyo")),
+            emp_cd=request.emp_cd,
+            store_cd=request.store_cd,
+            pos_no=request.pos_no,
+            total_amt=total_price
+        )
+        db.add(new_transaction)
+        db.commit()
+        db.refresh(new_transaction)  # 🔹 `trd_id` を取得するためにリフレッシュ
+
+        trd_id = new_transaction.trd_id
+        if not trd_id:
+            raise HTTPException(status_code=500, detail="取引IDの取得に失敗しました")
+
+        # 🔹 取引詳細データを挿入
+        for item in request.items:
+            product = db.query(Product).filter(Product.code == item.code).first()
+            if not product:
+                raise HTTPException(status_code=400, detail=f"商品コード {item.code} が見つかりません")
+            
+            new_detail = TransactionDetail(
+                trd_id=trd_id,
+                prd_id=product.PRD_ID,
+                prd_code=item.code,
+                prd_name=item.name,
+                prd_price=item.price
+            )
+            db.add(new_detail)
+
+        db.commit()  # 🔹 すべてのデータをコミット
+
+    except Exception as e:
+        db.rollback()  # ✅ 例外が発生した場合はロールバック
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
+
+    return {"trd_id": trd_id, "total_amt": total_price}
 
 # @app.post("/purchase")
 # def handle_purchase(request: PurchaseRequest,):
@@ -98,9 +144,9 @@ def handle_purchase(request: PurchaseRequest, db: Session = Depends(get_db)):  #
         if trd_id is None:
             raise HTTPException(status_code=500, detail="取引IDの取得に失敗しました")
 
-        # 🔹 取引詳細の挿入をバッチ処理で行わず、少しずつ挿入（transaction_details_adachiにデータを挿入）
+        # 🔹 取引詳細の挿入をバッチ処理で行わず、少しずつ挿入
         for item in request.items:
-            cursor.execute("SELECT PRD_ID FROM m_product_adachi WHERE code = %s", (item.code,))
+            cursor.execute("SELECT PRD_ID FROM m_product_hara WHERE code = %s", (item.code,))
             product_data = cursor.fetchone()
             if not product_data:
                 raise HTTPException(status_code=400, detail=f"商品コード {item.code} が見つかりません")
@@ -109,7 +155,7 @@ def handle_purchase(request: PurchaseRequest, db: Session = Depends(get_db)):  #
 
             cursor.execute(
                 """
-                INSERT INTO transaction_details_adachi (TRD_ID, PRD_ID, PRD_CODE, PRD_NAME, PRD_PRICE) 
+                INSERT INTO transaction_details_hara (TRD_ID, PRD_ID, PRD_CODE, PRD_NAME, PRD_PRICE) 
                 VALUES (%s, %s, %s, %s, %s)
                 """,
                 (trd_id, prd_id, item.code, item.name, item.price)
@@ -152,7 +198,7 @@ def handle_purchase(request: PurchaseRequest, db: Session = Depends(get_db)):  #
 #         total_price = sum(item.price * item.quantity for item in request.items)
 #         cursor.execute(
 #             """
-#             INSERT INTO transactions_adachi (DATETIME, EMP_CD, STORE_CD, POS_NO, TOTAL_AMT) VALUES (%s, %s, %s, %s, %s)
+#             INSERT INTO transactions_hara (DATETIME, EMP_CD, STORE_CD, POS_NO, TOTAL_AMT) VALUES (%s, %s, %s, %s, %s)
 #             """,
 #             (now, request.emp_cd, request.store_cd, request.pos_no, total_price)
 #         )
@@ -164,7 +210,7 @@ def handle_purchase(request: PurchaseRequest, db: Session = Depends(get_db)):  #
 
 #         # 🔹 取引詳細の挿入
 #         for item in request.items:
-#             cursor.execute("SELECT PRD_ID FROM m_product_adachi WHERE code = %s", (item.code,))
+#             cursor.execute("SELECT PRD_ID FROM m_product_hara WHERE code = %s", (item.code,))
 #             product_data = cursor.fetchone()
 #             if not product_data:
 #                 raise HTTPException(status_code=400, detail=f"商品コード {item.code} が見つかりません")
