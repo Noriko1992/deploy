@@ -69,12 +69,13 @@ def handle_purchase(request: PurchaseRequest, db: Session = Depends(get_db)):
             total_amt=total_price
         )
         db.add(new_transaction)
-        db.commit()
-        db.refresh(new_transaction)
 
         trd_id = new_transaction.trd_id
         if not trd_id:
             raise HTTPException(status_code=500, detail="取引IDの取得に失敗しました")
+
+        db.commit()
+        db.refresh(new_transaction)
 
         for item in request.items:
             product = db.query(Product).filter(Product.code == item.code).first()
