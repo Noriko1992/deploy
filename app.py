@@ -64,13 +64,21 @@ async def favicon():
     return {"message": "No favicon"}
 
 @app.post("/purchase")
-def handle_purchase(request: PurchaseRequest,):
+def handle_purchase(request: PurchaseRequest, db: Session = Depends(get_db)):  # 🔹 ここで db を取得
     if not request.items:
         raise HTTPException(status_code=400, detail="カートが空です")
 
     try:
-        db = next(get_db()) 
-        cursor = db.connection().cursor()
+        cursor = db.connection().cursor()  # 🔹 `db` の接続を適切に取得
+
+# @app.post("/purchase")
+# def handle_purchase(request: PurchaseRequest,):
+#     if not request.items:
+#         raise HTTPException(status_code=400, detail="カートが空です")
+
+#     try:
+#         db = next(get_db()) 
+#         cursor = db.connection().cursor()
 
         # 🔹 日本時間の現在日時を取得
         now = datetime.now(ZoneInfo("Asia/Tokyo"))
