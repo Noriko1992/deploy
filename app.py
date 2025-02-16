@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
 
 # CORS 設定
-origins = ["http://localhost:3000", "http://127.0.0.1:3000", "https://tech0-gen8-step4-pos-app-53.azurewebsites.net"]
+origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
