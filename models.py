@@ -1,5 +1,6 @@
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, ForeignKey, TIMESTAMP
+from typing import List
 
 # ベースクラスを定義
 Base = declarative_base()
@@ -35,3 +36,10 @@ class TransactionDetail(Base):
     prd_code = Column(String(13), nullable=False)  # CHAR(13) に修正
     prd_name = Column(String(50), nullable=False)  # VARCHAR(50) に修正
     prd_price = Column(Integer, nullable=False)
+
+class PurchaseRequest(Base):
+    __tablename__ = 'purchase_requests'
+
+    request_id = Column(Integer, primary_key=True, autoincrement=True)
+    emp_cd = Column(String(10), nullable=False)
+    items = Column(String, nullable=False)
