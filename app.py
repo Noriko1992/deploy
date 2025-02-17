@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 # from connect import get_db_connection, SessionLocal
 from connect import SessionLocal
-from models import Product
+from models import Product, Transaction, TransactionDetail
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import pymysql
@@ -57,22 +57,20 @@ def get_product(code: str, db: Session = Depends(get_db)):
 
 
 @app.post("/purchase")
-def handle_purchase(request: PurchaseRequest,):
+def handle_purchase(request: PurchaseRequest, db: Session = Depends(SessionLocal)):
     if not request.items:
         raise HTTPException(status_code=400, detail="カートが空です")
 
     try:
-        conn = get_db()
-        cursor = conn.cursor()
-
         # 🔹 日本時間の現在日時を取得
         now = datetime.now(ZoneInfo("Asia/Tokyo"))
 
         # 🔹 取引テーブルにデータを挿入（TRD_IDは AUTO_INCREMENT）
         total_price = sum(item.price * item.quantity for item in request.items)
+        cursor = db.cursor()
         cursor.execute(
             """
-            INSERT INTO transactions_hara (DATETIME, EMP_CD, STORE_CD, POS_NO, TOTAL_AMT) 
+            INSERT INTO transactions_adachi (DATETIME, EMP_CD, STORE_CD, POS_NO, TOTAL_AMT) 
             VALUES (%s, %s, %s, %s, %s)
             """,
             (now, request.emp_cd, request.store_cd, request.pos_no, total_price)
@@ -83,9 +81,9 @@ def handle_purchase(request: PurchaseRequest,):
         if trd_id is None:
             raise HTTPException(status_code=500, detail="取引IDの取得に失敗しました")
 
-        # 🔹 取引詳細の挿入をバッチ処理で行わず、少しずつ挿入
+        # 🔹 取引詳細の挿入をバッチ処理で行わず、少しずつ挿入（transaction_details_adachiにデータを挿入）
         for item in request.items:
-            cursor.execute("SELECT PRD_ID FROM m_product_hara WHERE code = %s", (item.code,))
+            cursor.execute("SELECT PRD_ID FROM m_product_adachi WHERE code = %s", (item.code,))
             product_data = cursor.fetchone()
             if not product_data:
                 raise HTTPException(status_code=400, detail=f"商品コード {item.code} が見つかりません")
@@ -94,27 +92,23 @@ def handle_purchase(request: PurchaseRequest,):
 
             cursor.execute(
                 """
-                INSERT INTO transaction_details_hara (TRD_ID, PRD_ID, PRD_CODE, PRD_NAME, PRD_PRICE) 
+                INSERT INTO transaction_details_adachi (TRD_ID, PRD_ID, PRD_CODE, PRD_NAME, PRD_PRICE) 
                 VALUES (%s, %s, %s, %s, %s)
                 """,
                 (trd_id, prd_id, item.code, item.name, item.price)
             )
             # 途中でコミットすることで、メモリの消費を抑える
-            conn.commit()
+            db.commit()
 
         # 最後にまとめてコミットする
-        conn.commit()
+        db.commit()
 
-    except pymysql.MySQLError as e:
-        conn.rollback()
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-    
     except Exception as e:
-        conn.rollback()
+        # エラーが発生した場合の処理
+        db.rollback()
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
     
     finally:
         cursor.close()
-        conn.close()
 
     return {"trd_id": trd_id, "total_amt": total_price}
