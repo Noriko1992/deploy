@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
 
 # CORS 設定
-origins = ["https://tech0-gen8-step4-pos-app-53.azurewebsites.net"]
+origins = ["https://tech0-gen8-step4-pos-app-53.azurewebsites.net", "https://tech0-gen8-step4-pos-app-54.azurewebsites.net"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
