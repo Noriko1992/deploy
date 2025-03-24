@@ -16,7 +16,7 @@ class Product(Base):
 
 # 取引テーブル
 class Transaction(Base):
-    __tablename__ = "transactions_hara"
+    __tablename__ = "m_transactions_hara"
 
     trd_id = Column(Integer, primary_key=True, autoincrement=True)  # ID名を仕様に合わせる
     datetime = Column(TIMESTAMP, nullable=False)  # created_at → datetime に変更
@@ -27,10 +27,10 @@ class Transaction(Base):
 
 # 取引詳細テーブル
 class TransactionDetail(Base):
-    __tablename__ = 'transaction_details_hara'
+    __tablename__ = 'm_transaction_details_hara'
 
     dtl_id = Column(Integer, primary_key=True, autoincrement=True)
-    trd_id = Column(Integer, ForeignKey('transactions_hara.trd_id'), nullable=False)  # 修正
+    trd_id = Column(Integer, ForeignKey('m_transactions_hara.trd_id'), nullable=False)  # 修正
     prd_id = Column(Integer, ForeignKey('m_product_hara.PRD_ID'), nullable=False)  # 商品ID追加
     prd_code = Column(String(13), nullable=False)  # CHAR(13) に修正
     prd_name = Column(String(50), nullable=False)  # VARCHAR(50) に修正
